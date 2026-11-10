@@ -1,69 +1,78 @@
 import SwiftUI
-import SwiftData
 
 struct DiaryView: View {
-    @Environment(\.modelContext) private var modelContext
     @State private var entryText: String = ""
+    @FocusState private var isInputFocused: Bool
     @State private var statusMessage: String? = nil
 
     var body: some View {
-        NavigationStack {
-            VStack(spacing: 16) {
-                HStack(spacing: 8) {
-                    TextField("Write a diary entry (try 'todo add ...')", text: $entryText)
-                        .textFieldStyle(.roundedBorder)
-                        .autocorrectionDisabled()
-                    
-                    Button(action: submitEntry) {
-                        Image(systemName: "paperplane.fill")
-                            .padding(8)
-                    }
-                    .buttonStyle(.borderedProminent)
-                    .disabled(entryText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        ZStack {
+            // Arka plan: Boş alana dokunulduğunda klavyeyi kapatır
+            Color(.systemBackground)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    isInputFocused = false
                 }
-                .padding(.horizontal)
+            
+            VStack {
+                Spacer()
                 
+                // Durum bildirimi (Kaydedildi vb.)
                 if let statusMessage {
                     Text(statusMessage)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .transition(.opacity)
-                        .padding(.horizontal)
+                        .padding(.bottom, 8)
                 }
-                
-                Spacer()
+
+                // Alt Metin BARI
+                HStack(spacing: 12) {
+                    TextField("Bugün ne oldu?", text: $entryText, axis: .vertical)
+                        .lineLimit(1...5)
+                        .focused($isInputFocused)
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 12)
+                        .background(Color(.secondarySystemBackground))
+                        .cornerRadius(24)
+                    
+                    if !entryText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        Button(action: submitEntry) {
+                            Image(systemName: "arrow.up.circle.fill")
+                                .resizable()
+                                .frame(width: 36, height: 36)
+                                .foregroundStyle(.primary)
+                        }
+                        .transition(.scale.combined(with: .opacity))
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, isInputFocused ? 8 : 24)
             }
-            .padding(.top)
-            .navigationTitle("New Entry")
-            .onAppear {
-                LoggerService.shared.log("NAV: Opened DiaryView")
-            }
+            .animation(.easeOut(duration: 0.25), value: isInputFocused)
+        }
+        .onAppear {
+            LoggerService.shared.log("NAV: Opened Minimalist DiaryView")
         }
     }
 
     private func submitEntry() {
         let textToSave = entryText
-
-        // In DiaryView submitEntry():
         let result = DiaryService.shared.saveEntry(text: textToSave)
         
         if result.success {
-            entryText = ""
-            var message = "Diary saved."
-            
-            if let auto = result.automatonResult, auto.matched, let title = auto.taskTitle {
-                let newItem = Item(
-                    timestamp: .now,
-                    title: title,
-                    priority: auto.priority ?? "Normal",
-                    dueDate: auto.dueDate
-                )
-                modelContext.insert(newItem)
-                message += " Added task with priority \(newItem.priority)!"
+            withAnimation {
+                entryText = ""
+                isInputFocused = false
+                statusMessage = "Kaydedildi"
             }
-            statusMessage = message
-        } else {
-            statusMessage = "Failed to save entry."
+            
+            // 2 saniye sonra bildirim yazısını temizle
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+                withAnimation {
+                    statusMessage = nil
+                }
+            }
         }
     }
 }

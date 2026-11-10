@@ -8,14 +8,24 @@ struct MainTabView: View {
                     Label("Diary", systemImage: "book.fill")
                 }
             
-            DiaryHistoryView()
-                .tabItem {
-                    Label("History", systemImage: "clock.arrow.circlepath")
-                }
-            
             TodoListView()
                 .tabItem {
-                    Label("Todos", systemImage: "checklist")
+                    Label("To-Do", systemImage: "checkmark.square")
+                }
+            
+            DoneListView()
+                .tabItem {
+                    Label("Done", systemImage: "checkmark.seal.fill")
+                }
+
+            CalendarView()
+                .tabItem {
+                    Label("Calendar", systemImage: "calendar")
+                }
+
+            AgendaView()
+                .tabItem {
+                    Label("Agenda", systemImage: "calendar.day.timeline.left")
                 }
         }
     }

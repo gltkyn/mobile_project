@@ -2,7 +2,6 @@ import Foundation
 
 final class DiaryService {
     static let shared = DiaryService()
-    
     private let fileURL: URL
 
     private init() {
@@ -14,38 +13,47 @@ final class DiaryService {
         }
     }
 
-// Inside saveEntry return type:
-@discardableResult
-func saveEntry(text: String) -> (success: Bool, automatonResult: AutomatonResult?) {
-    let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
-    guard !trimmedText.isEmpty else {
-        LoggerService.shared.log("EVENT [Diary_Ignored]: Empty entry submission attempted.")
-        return (false, nil)
-    }
-    
-    let entry = DiaryEntry(timestamp: Date(), content: trimmedText)
-    
-    guard let data = try? JSONEncoder().encode(entry),
-          let jsonString = String(data: data, encoding: .utf8) else {
-        return (false, nil)
-    }
-    
-    let ndjsonLine = jsonString + "\n"
-    guard let lineData = ndjsonLine.data(using: .utf8) else { return (false, nil) }
-    
-    do {
-        let fileHandle = try FileHandle(forWritingTo: fileURL)
-        fileHandle.seekToEndOfFile()
-        fileHandle.write(lineData)
-        fileHandle.closeFile()
+    /// Saves entry to single NDJSON file set with isDone flag
+    @discardableResult
+    func saveEntry(text: String, explicitIsDone: Bool? = nil) -> Bool {
+        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedText.isEmpty else { return false }
         
+        // Determine if it is marked done via parameter or auto-parsed intent
         let automatonResult = DiaryAutomaton.shared.process(text: trimmedText)
-        return (true, automatonResult)
-    } catch {
-        return (false, nil)
+        let isDoneValue: Bool
+        
+        if let explicit = explicitIsDone {
+            isDoneValue = explicit
+        } else {
+            switch automatonResult.intent {
+            case .done:
+                isDoneValue = true
+            default:
+                isDoneValue = false
+            }
+        }
+        
+        let entry = DiaryEntry(timestamp: Date(), content: trimmedText, isDone: isDoneValue)
+        
+        guard let data = try? JSONEncoder().encode(entry),
+              let jsonString = String(data: data, encoding: .utf8) else { return false }
+        
+        let ndjsonLine = jsonString + "\n"
+        guard let lineData = ndjsonLine.data(using: .utf8) else { return false }
+        
+        do {
+            let fileHandle = try FileHandle(forWritingTo: fileURL)
+            fileHandle.seekToEndOfFile()
+            fileHandle.write(lineData)
+            fileHandle.closeFile()
+            return true
+        } catch {
+            return false
+        }
     }
-}
 
+    /// Reads all entries from the single storage file
     func loadEntries() -> [DiaryEntry] {
         guard let content = try? String(contentsOf: fileURL, encoding: .utf8) else { return [] }
         let lines = content.components(separatedBy: .newlines)

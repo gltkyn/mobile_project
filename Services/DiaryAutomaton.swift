@@ -1,73 +1,41 @@
 import Foundation
 
-enum AutomatonState {
-    case idle
-    case scanning
-    case matchFound(task: String, priority: String?, dueDate: String?)
-    case failed
+enum ActionableIntent {
+    case todo(title: String)
+    case done(title: String)
+    case journal
 }
 
 struct AutomatonResult {
     let matched: Bool
-    let taskTitle: String?
-    let priority: String?
-    let dueDate: String?
+    let intent: ActionableIntent
+    let title: String
 }
 
 final class DiaryAutomaton {
     static let shared = DiaryAutomaton()
     
-    private(set) var currentState: AutomatonState = .idle
-    
     private init() {}
 
-    /// Parses text for: "todo add [task] [#priority] [due:date]"
+    /// Parses entry text to differentiate between todo items and done activities
     func process(text: String) -> AutomatonResult {
-        updateState(.scanning)
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        
-        // Regex breakdown:
-        // Group 1: Task text
-        // Group 2: Optional priority tag (#high, #medium, #low)
-        // Group 3: Optional due date (due:something)
-        let pattern = #"(?i)\btodo\s+add\s+(.+?)(?:\s+#(high|medium|low))?(?:\s+due:([^\s]+))?$"#
-        
-        guard let regex = try? NSRegularExpression(pattern: pattern),
-              let match = regex.firstMatch(in: trimmed, range: NSRange(trimmed.startIndex..., in: trimmed)),
-              let taskRange = Range(match.range(at: 1), in: trimmed) else {
-            updateState(.failed)
-            return AutomatonResult(matched: false, taskTitle: nil, priority: nil, dueDate: nil)
+        let lower = trimmed.lowercased()
+
+        // 1. Explicit Todo match (e.g., "todo add buy groceries")
+        if lower.hasPrefix("todo add ") {
+            let taskTitle = String(trimmed.dropFirst(9)).trimmingCharacters(in: .whitespacesAndNewlines)
+            return AutomatonResult(matched: true, intent: .todo(title: taskTitle), title: taskTitle)
         }
         
-        let taskTitle = String(trimmed[taskRange]).trimmingCharacters(in: .whitespacesAndNewlines)
+        // 2. Completed activity triggers (e.g., "i biked today", "done biking", "did run 5k")
+        let doneTriggers = ["i biked", "i ran", "i finished", "i completed", "done "]
+        let isDoneActivity = doneTriggers.contains { lower.contains($0) }
         
-        // Extract optional priority (Group 2)
-        var priority: String? = nil
-        if match.range(at: 2).location != NSNotFound,
-           let priorityRange = Range(match.range(at: 2), in: trimmed) {
-            priority = String(trimmed[priorityRange]).capitalized
+        if isDoneActivity {
+            return AutomatonResult(matched: true, intent: .done(title: trimmed), title: trimmed)
         }
         
-        // Extract optional due date (Group 3)
-        var dueDate: String? = nil
-        if match.range(at: 3).location != NSNotFound,
-           let dueRange = Range(match.range(at: 3), in: trimmed) {
-            dueDate = String(trimmed[dueRange])
-        }
-        
-        guard !taskTitle.isEmpty else {
-            updateState(.failed)
-            return AutomatonResult(matched: false, taskTitle: nil, priority: nil, dueDate: nil)
-        }
-        
-        updateState(.matchFound(task: taskTitle, priority: priority, dueDate: dueDate))
-        LoggerService.shared.log("AUTOMATON: Matched task=\"\(taskTitle)\" | Priority=\(priority ?? "None") | Due=\(dueDate ?? "None")")
-        
-        updateState(.idle)
-        return AutomatonResult(matched: true, taskTitle: taskTitle, priority: priority, dueDate: dueDate)
-    }
-    
-    private func updateState(_ newState: AutomatonState) {
-        self.currentState = newState
+        return AutomatonResult(matched: false, intent: .journal, title: trimmed)
     }
 }
