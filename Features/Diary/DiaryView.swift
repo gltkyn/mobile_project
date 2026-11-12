@@ -58,9 +58,9 @@ struct DiaryView: View {
 
     private func submitEntry() {
         let textToSave = entryText
-        let result = DiaryService.shared.saveEntry(text: textToSave)
-        
-        if result.success {
+        let saved = DiaryService.shared.saveEntry(text: textToSave)
+
+        if saved {
             withAnimation {
                 entryText = ""
                 isInputFocused = false

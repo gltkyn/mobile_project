@@ -3,25 +3,27 @@ import SwiftUI
 struct AgendaView: View {
     @State private var entries: [DiaryEntry] = []
 
-    // Girdileri tarihlerine göre gruplayan yardımcı yapı
-    private var groupedEntries: [(key: String, value: [DiaryEntry])] {
+    // Created once; DateFormatter is expensive to build.
+    private static let dayFormatter: DateFormatter = {
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         formatter.timeStyle = .none
         formatter.locale = Locale(identifier: "tr_TR")
+        return formatter
+    }()
 
-        // Tarih gün değerine göre gruplama yapıyoruz
+    // Girdileri günlerine göre gruplar. Anahtar gerçek bir Date (günün başlangıcı),
+    // böylece sıralama metin ayrıştırmaya bağlı kalmaz; biçimlendirme sadece gösterimde.
+    private var groupedEntries: [(day: Date, entries: [DiaryEntry])] {
+        let calendar = Calendar.current
         let grouped = Dictionary(grouping: entries) { entry in
-            formatter.string(from: entry.timestamp)
+            calendar.startOfDay(for: entry.timestamp)
         }
 
-        // Kronolojik veya ters kronolojik sıralama için anahtarları sıralıyoruz
-        return grouped.sorted { 
-            // En yeni tarih en üstte olacak şekilde
-            guard let date1 = formatter.date(from: $0.key),
-                  let date2 = formatter.date(from: $1.key) else { return false }
-            return date1 > date2
-        }
+        // En yeni gün en üstte
+        return grouped
+            .sorted { $0.key > $1.key }
+            .map { (day: $0.key, entries: $0.value) }
     }
 
     var body: some View {
@@ -35,9 +37,9 @@ struct AgendaView: View {
                     )
                 } else {
                     List {
-                        ForEach(groupedEntries, id: \.key) { dateString, dayEntries in
-                            Section(header: Text(dateString).font(.headline).foregroundColor(.accentColor)) {
-                                ForEach(dayEntries) { entry in
+                        ForEach(groupedEntries, id: \.day) { group in
+                            Section(header: Text(Self.dayFormatter.string(from: group.day)).font(.headline).foregroundColor(.accentColor)) {
+                                ForEach(group.entries) { entry in
                                     HStack(alignment: .top, spacing: 10) {
                                         // Durum simgesi (Todo mu, Done mu, Normal günlük mü?)
                                         Image(systemName: iconFor(entry: entry))

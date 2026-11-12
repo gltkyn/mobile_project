@@ -1,0 +1,189 @@
+diff --git a/Features/Agenda/AgendaView.swift b/Features/Agenda/AgendaView.swift
+index 4bff5ff..da6af0e 100644
+--- a/Features/Agenda/AgendaView.swift
++++ b/Features/Agenda/AgendaView.swift
+@@ -3,25 +3,27 @@ import SwiftUI
+ struct AgendaView: View {
+     @State private var entries: [DiaryEntry] = []
+ 
+-    // Girdileri tarihlerine göre gruplayan yardımcı yapı
+-    private var groupedEntries: [(key: String, value: [DiaryEntry])] {
++    // Created once; DateFormatter is expensive to build.
++    private static let dayFormatter: DateFormatter = {
+         let formatter = DateFormatter()
+         formatter.dateStyle = .medium
+         formatter.timeStyle = .none
+         formatter.locale = Locale(identifier: "tr_TR")
++        return formatter
++    }()
+ 
+-        // Tarih gün değerine göre gruplama yapıyoruz
++    // Girdileri günlerine göre gruplar. Anahtar gerçek bir Date (günün başlangıcı),
++    // böylece sıralama metin ayrıştırmaya bağlı kalmaz; biçimlendirme sadece gösterimde.
++    private var groupedEntries: [(day: Date, entries: [DiaryEntry])] {
++        let calendar = Calendar.current
+         let grouped = Dictionary(grouping: entries) { entry in
+-            formatter.string(from: entry.timestamp)
++            calendar.startOfDay(for: entry.timestamp)
+         }
+ 
+-        // Kronolojik veya ters kronolojik sıralama için anahtarları sıralıyoruz
+-        return grouped.sorted { 
+-            // En yeni tarih en üstte olacak şekilde
+-            guard let date1 = formatter.date(from: $0.key),
+-                  let date2 = formatter.date(from: $1.key) else { return false }
+-            return date1 > date2
+-        }
++        // En yeni gün en üstte
++        return grouped
++            .sorted { $0.key > $1.key }
++            .map { (day: $0.key, entries: $0.value) }
+     }
+ 
+     var body: some View {
+@@ -35,9 +37,9 @@ struct AgendaView: View {
+                     )
+                 } else {
+                     List {
+-                        ForEach(groupedEntries, id: \.key) { dateString, dayEntries in
+-                            Section(header: Text(dateString).font(.headline).foregroundColor(.accentColor)) {
+-                                ForEach(dayEntries) { entry in
++                        ForEach(groupedEntries, id: \.day) { group in
++                            Section(header: Text(Self.dayFormatter.string(from: group.day)).font(.headline).foregroundColor(.accentColor)) {
++                                ForEach(group.entries) { entry in
+                                     HStack(alignment: .top, spacing: 10) {
+                                         // Durum simgesi (Todo mu, Done mu, Normal günlük mü?)
+                                         Image(systemName: iconFor(entry: entry))
+diff --git a/Features/Diary/DiaryView.swift b/Features/Diary/DiaryView.swift
+index e734d81..145de5a 100644
+--- a/Features/Diary/DiaryView.swift
++++ b/Features/Diary/DiaryView.swift
+@@ -58,9 +58,9 @@ struct DiaryView: View {
+ 
+     private func submitEntry() {
+         let textToSave = entryText
+-        let result = DiaryService.shared.saveEntry(text: textToSave)
+-        
+-        if result.success {
++        let saved = DiaryService.shared.saveEntry(text: textToSave)
++
++        if saved {
+             withAnimation {
+                 entryText = ""
+                 isInputFocused = false
+diff --git a/Models/DiaryEntry.swift b/Models/DiaryEntry.swift
+index 510387e..6dd4021 100644
+--- a/Models/DiaryEntry.swift
++++ b/Models/DiaryEntry.swift
+@@ -7,3 +7,17 @@ struct DiaryEntry: Codable, Identifiable {
+     var isDone: Bool = false
+     var isDaily: Bool = false // Yeni eklenen günlük rutin bayrağı
+ }
++
++// Tolerant decoding: lines written before a field existed (e.g. isDaily)
++// still decode, using the default instead of being dropped.
++// Kept in an extension so the memberwise initializer is preserved.
++extension DiaryEntry {
++    init(from decoder: Decoder) throws {
++        let c = try decoder.container(keyedBy: CodingKeys.self)
++        id = try c.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
++        timestamp = try c.decodeIfPresent(Date.self, forKey: .timestamp) ?? Date()
++        content = try c.decode(String.self, forKey: .content)
++        isDone = try c.decodeIfPresent(Bool.self, forKey: .isDone) ?? false
++        isDaily = try c.decodeIfPresent(Bool.self, forKey: .isDaily) ?? false
++    }
++}
+diff --git a/Services/DiaryService.swift b/Services/DiaryService.swift
+index e57df91..4128367 100644
+--- a/Services/DiaryService.swift
++++ b/Services/DiaryService.swift
+@@ -71,4 +71,46 @@ final class DiaryService {
+         }
+         return entries.reversed()
+     }
++
++    /// Updates the isDone flag of one entry by rewriting the file atomically.
++    /// Every other line is kept exactly as it was, including lines that
++    /// fail to decode, so an update can never silently delete data.
++    @discardableResult
++    func updateEntryStatus(id: UUID, isDone: Bool) -> Bool {
++        guard let content = try? String(contentsOf: fileURL, encoding: .utf8) else { return false }
++
++        let decoder = JSONDecoder()
++        let encoder = JSONEncoder()
++        var outputLines: [String] = []
++        var found = false
++
++        for line in content.components(separatedBy: .newlines) {
++            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
++            guard !trimmed.isEmpty else { continue }
++
++            if !found,
++               let data = trimmed.data(using: .utf8),
++               var entry = try? decoder.decode(DiaryEntry.self, from: data),
++               entry.id == id {
++                entry.isDone = isDone
++                if let newData = try? encoder.encode(entry),
++                   let newLine = String(data: newData, encoding: .utf8) {
++                    outputLines.append(newLine)
++                    found = true
++                    continue
++                }
++            }
++            outputLines.append(trimmed)
++        }
++
++        guard found else { return false }
++
++        do {
++            try (outputLines.joined(separator: "\n") + "\n")
++                .write(to: fileURL, atomically: true, encoding: .utf8)
++            return true
++        } catch {
++            return false
++        }
++    }
+ }
+diff --git a/Services/ResponseLibrary.swift b/Services/ResponseLibrary.swift
+index 003c80c..81c903b 100644
+--- a/Services/ResponseLibrary.swift
++++ b/Services/ResponseLibrary.swift
+@@ -9,20 +9,24 @@ struct MachineResponse {
+ final class ResponseLibrary {
+     static let shared = ResponseLibrary()
+     
+-    private let responses: [String: MachineResponse] = [
+-        "task_timed_suggestion": MachineResponse(
+-            code: "TASK_TIMED_SUGGESTION",
+-            template: "I noticed you want to '%@' on %@. Shall I lock this into your timed todos?",
+-            actionLabel: "Add Timed Todo"
+-        ),
+-        "task_general_suggestion": MachineResponse(
+-            code: "TASK_GENERAL_SUGGESTION",
+-            template: "Found an action item: '%@'. Would you like to add it to your list?",
+-            actionLabel: "Add to Todos"
+-        )
+-    ]
+-    
+-    private init() {}
++    // Keyed by each response's own `code`, so the key can never drift from it.
++    private let responses: [String: MachineResponse]
++
++    private init() {
++        let all = [
++            MachineResponse(
++                code: "TASK_TIMED_SUGGESTION",
++                template: "I noticed you want to '%@' on %@. Shall I lock this into your timed todos?",
++                actionLabel: "Add Timed Todo"
++            ),
++            MachineResponse(
++                code: "TASK_GENERAL_SUGGESTION",
++                template: "Found an action item: '%@'. Would you like to add it to your list?",
++                actionLabel: "Add to Todos"
++            )
++        ]
++        self.responses = Dictionary(uniqueKeysWithValues: all.map { ($0.code, $0) })
++    }
+ 
+     func render(code: String, arguments: [CVarArg]) -> (text: String, actionLabel: String)? {
+         guard let response = responses[code] else { return nil }

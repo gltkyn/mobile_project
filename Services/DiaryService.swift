@@ -71,4 +71,46 @@ final class DiaryService {
         }
         return entries.reversed()
     }
+
+    /// Updates the isDone flag of one entry by rewriting the file atomically.
+    /// Every other line is kept exactly as it was, including lines that
+    /// fail to decode, so an update can never silently delete data.
+    @discardableResult
+    func updateEntryStatus(id: UUID, isDone: Bool) -> Bool {
+        guard let content = try? String(contentsOf: fileURL, encoding: .utf8) else { return false }
+
+        let decoder = JSONDecoder()
+        let encoder = JSONEncoder()
+        var outputLines: [String] = []
+        var found = false
+
+        for line in content.components(separatedBy: .newlines) {
+            let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { continue }
+
+            if !found,
+               let data = trimmed.data(using: .utf8),
+               var entry = try? decoder.decode(DiaryEntry.self, from: data),
+               entry.id == id {
+                entry.isDone = isDone
+                if let newData = try? encoder.encode(entry),
+                   let newLine = String(data: newData, encoding: .utf8) {
+                    outputLines.append(newLine)
+                    found = true
+                    continue
+                }
+            }
+            outputLines.append(trimmed)
+        }
+
+        guard found else { return false }
+
+        do {
+            try (outputLines.joined(separator: "\n") + "\n")
+                .write(to: fileURL, atomically: true, encoding: .utf8)
+            return true
+        } catch {
+            return false
+        }
+    }
 }
