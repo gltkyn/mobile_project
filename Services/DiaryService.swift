@@ -13,29 +13,36 @@ final class DiaryService {
         }
     }
 
-    /// Saves entry to single NDJSON file set with isDone flag
+    /// Saves entry to the single NDJSON file. The kind (journal / todo / done) comes
+    /// from the explicit `kind` argument, or else from what DiaryAutomaton detects.
     @discardableResult
-    func saveEntry(text: String, explicitIsDone: Bool? = nil) -> Bool {
+    func saveEntry(text: String, kind explicitKind: EntryKind? = nil) -> Bool {
         let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedText.isEmpty else { return false }
-        
-        // Determine if it is marked done via parameter or auto-parsed intent
+
         let automatonResult = DiaryAutomaton.shared.process(text: trimmedText)
-        let isDoneValue: Bool
-        
-        if let explicit = explicitIsDone {
-            isDoneValue = explicit
+        let resolvedKind: EntryKind
+
+        if let explicitKind {
+            resolvedKind = explicitKind
         } else {
             switch automatonResult.intent {
-            case .done:
-                isDoneValue = true
-            default:
-                isDoneValue = false
+            case .todo:    resolvedKind = .todo
+            case .done:    resolvedKind = .done
+            case .journal: resolvedKind = .journal
             }
         }
-        
-        let entry = DiaryEntry(timestamp: Date(), content: trimmedText, isDone: isDoneValue)
-        
+
+        // For "todo add buy milk" the automaton returns just "buy milk"; plain lines come back unchanged.
+        let content = automatonResult.title.isEmpty ? trimmedText : automatonResult.title
+
+        let entry = DiaryEntry(
+            timestamp: Date(),
+            content: content,
+            kind: resolvedKind,
+            isDone: resolvedKind == .done
+        )
+
         guard let data = try? JSONEncoder().encode(entry),
               let jsonString = String(data: data, encoding: .utf8) else { return false }
         

@@ -45,8 +45,8 @@ struct CalendarView: View {
                     List(filteredEntries) { entry in
                         HStack(alignment: .top, spacing: 12) {
                             // Durum İkonu (Yapıldı / Yapılacak / Günlük)
-                            Image(systemName: entry.isDone ? "checkmark.circle.fill" : "circle")
-                                .foregroundColor(entry.isDone ? .green : .orange)
+                            Image(systemName: entry.symbolName)
+                                .foregroundColor(entry.symbolColor)
                                 .font(.title3)
 
                             VStack(alignment: .leading, spacing: 4) {

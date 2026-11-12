@@ -60,7 +60,7 @@ struct DoneListView: View {
     }
 
     private func loadDones() {
-        // Tek ortak dosyadan okuyup isDone true olanları süzüyoruz
-        doneEntries = DiaryService.shared.loadEntries().filter { $0.isDone }
+        // Tek ortak dosyadan okuyup tamamlanmış (todo veya yapıldı) olanları süzüyoruz
+        doneEntries = DiaryService.shared.loadEntries().filter { $0.isCompleted }
     }
 }

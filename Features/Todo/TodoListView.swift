@@ -21,6 +21,6 @@ struct TodoListView: View {
     }
 
     private func loadTodos() {
-        todoEntries = DiaryService.shared.loadEntries().filter { !$0.isDone }
+        todoEntries = DiaryService.shared.loadEntries().filter { $0.isOpenTodo }
     }
 }

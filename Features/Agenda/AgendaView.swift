@@ -42,8 +42,8 @@ struct AgendaView: View {
                                 ForEach(group.entries) { entry in
                                     HStack(alignment: .top, spacing: 10) {
                                         // Durum simgesi (Todo mu, Done mu, Normal günlük mü?)
-                                        Image(systemName: iconFor(entry: entry))
-                                            .foregroundColor(colorFor(entry: entry))
+                                        Image(systemName: entry.symbolName)
+                                            .foregroundColor(entry.symbolColor)
                                             .font(.subheadline)
                                             .padding(.top, 2)
 
@@ -76,23 +76,5 @@ struct AgendaView: View {
     private func loadEntries() {
         // Ortak kaynaktan verileri okuyoruz
         entries = DiaryService.shared.loadEntries()
-    }
-
-    // Girdinin durumuna göre ikon belirleme
-    private func iconFor(entry: DiaryEntry) -> String {
-        if entry.isDone {
-            return "checkmark.circle.fill"
-        } else {
-            return "circle"
-        }
-    }
-
-    // Girdinin durumuna göre renk belirleme
-    private func colorFor(entry: DiaryEntry) -> Color {
-        if entry.isDone {
-            return .green
-        } else {
-            return .orange
-        }
     }
 }
