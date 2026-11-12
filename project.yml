@@ -1,0 +1,14 @@
+name: Project
+options:
+  bundleIdPrefix: com.gltkyn
+targets:
+  Project:
+    type: application
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources: [App, Features, Models, Services]
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        PRODUCT_BUNDLE_IDENTIFIER: com.gltkyn.project
+        SWIFT_VERSION: "5.0"

@@ -1,3 +1,5 @@
+import SwiftUI
+
 struct GestureTutorialOverlay: View {
     @Binding var isPresented: Bool
 
