@@ -1,24 +1,20 @@
-name: Build Swift Package
-
-on:
-  push:
-    branches: [ "main", "master" ]
-  pull_request:
-    branches: [ "main", "master" ]
+name: iOS Build
+on: [push, pull_request]
 
 jobs:
   build:
-    name: Build on macOS Cloud Runner
     runs-on: macos-latest
-
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Swift
-        uses: swift-actions/setup-swift@v2
-        with:
-          swift-version: "5.9"
+      - name: Generate Xcode project
+        run: brew install xcodegen && xcodegen generate
 
-      - name: Build Package
-        run: swift build
+      - name: Build Project
+        run: |
+          xcodebuild -project Project.xcodeproj \
+            -scheme Project \
+            -sdk iphonesimulator \
+            -destination "generic/platform=iOS Simulator" \
+            CODE_SIGNING_ALLOWED=NO \
+            clean build
