@@ -3,6 +3,7 @@ import Foundation
 final class DiaryService {
     static let shared = DiaryService()
     private let fileURL: URL
+    private let lock = NSLock() // serializes append / read / rewrite of the file
 
     private init() {
         let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -42,6 +43,8 @@ final class DiaryService {
         let ndjsonLine = jsonString + "\n"
         guard let lineData = ndjsonLine.data(using: .utf8) else { return false }
         
+        lock.lock()
+        defer { lock.unlock() }
         do {
             let fileHandle = try FileHandle(forWritingTo: fileURL)
             fileHandle.seekToEndOfFile()
@@ -55,6 +58,8 @@ final class DiaryService {
 
     /// Reads all entries from the single storage file
     func loadEntries() -> [DiaryEntry] {
+        lock.lock()
+        defer { lock.unlock() }
         guard let content = try? String(contentsOf: fileURL, encoding: .utf8) else { return [] }
         let lines = content.components(separatedBy: .newlines)
         
@@ -77,6 +82,8 @@ final class DiaryService {
     /// fail to decode, so an update can never silently delete data.
     @discardableResult
     func updateEntryStatus(id: UUID, isDone: Bool) -> Bool {
+        lock.lock()
+        defer { lock.unlock() }
         guard let content = try? String(contentsOf: fileURL, encoding: .utf8) else { return false }
 
         let decoder = JSONDecoder()

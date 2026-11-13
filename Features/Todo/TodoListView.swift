@@ -7,7 +7,13 @@ struct TodoListView: View {
         NavigationStack {
             List(todoEntries) { entry in
                 HStack {
-                    Image(systemName: "circle")
+                    Button {
+                        DiaryService.shared.updateEntryStatus(id: entry.id, isDone: true)
+                        loadTodos()
+                    } label: {
+                        Image(systemName: "circle")
+                    }
+                    .buttonStyle(.plain)
                     Text(entry.content)
                     Spacer()
                     Text(entry.timestamp, style: .time)
