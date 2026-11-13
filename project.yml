@@ -6,7 +6,7 @@ targets:
     type: application
     platform: iOS
     deploymentTarget: "17.0"
-    sources: [App, Features, Models, Services]
+    sources: [App, Sources/mobile_project]
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES

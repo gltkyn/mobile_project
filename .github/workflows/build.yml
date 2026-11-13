@@ -10,11 +10,23 @@ jobs:
       - name: Generate Xcode project
         run: brew install xcodegen && xcodegen generate
 
-      - name: Build Project
+      - name: Build for iPhone (unsigned)
         run: |
           xcodebuild -project Project.xcodeproj \
             -scheme Project \
-            -sdk iphonesimulator \
-            -destination "generic/platform=iOS Simulator" \
+            -sdk iphoneos \
+            -configuration Release \
+            -derivedDataPath build \
             CODE_SIGNING_ALLOWED=NO \
             clean build
+
+      - name: Package .ipa
+        run: |
+          mkdir Payload
+          cp -R build/Build/Products/Release-iphoneos/Project.app Payload/
+          zip -qr Project.ipa Payload
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Project-ipa
+          path: Project.ipa
