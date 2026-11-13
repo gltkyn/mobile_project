@@ -61,6 +61,7 @@ struct DiaryView: View {
 
     private func submitEntry() {
         let textToSave = entryText
+        guard !textToSave.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         let saved = DiaryService.shared.saveEntry(text: textToSave)
 
         if saved {
@@ -69,13 +70,13 @@ struct DiaryView: View {
                 isInputFocused = false
                 statusMessage = "Kaydedildi"
             }
-            
-            // 2 saniye sonra bildirim yazısını temizle
-            DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-                withAnimation {
-                    statusMessage = nil
-                }
-            }
+        } else {
+            withAnimation { statusMessage = "Kaydedilemedi" }
+        }
+
+        // 2 saniye sonra bildirim yazısını temizle
+        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
+            withAnimation { statusMessage = nil }
         }
     }
 }
