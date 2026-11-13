@@ -5,8 +5,7 @@ struct DiaryEntry: Codable, Identifiable {
     var timestamp: Date = Date()
     var content: String
     var isDone: Bool = false
-    var isDaily: Bool = false // Yeni eklenen günlük rutin bayrağı
-}
+    var isDaily: Bool = false 
 
 // Tolerant decoding: lines written before a field existed (e.g. isDaily)
 // still decode, using the default instead of being dropped.
