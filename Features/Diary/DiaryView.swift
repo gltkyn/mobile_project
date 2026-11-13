@@ -31,6 +31,8 @@ struct DiaryView: View {
                     TextField("Bugün ne oldu?", text: $entryText, axis: .vertical)
                         .lineLimit(1...5)
                         .focused($isInputFocused)
+                        .submitLabel(.send)
+                        .onSubmit(submitEntry)
                         .padding(.horizontal, 16)
                         .padding(.vertical, 12)
                         .background(Color(.secondarySystemBackground))
@@ -52,6 +54,7 @@ struct DiaryView: View {
             .animation(.easeOut(duration: 0.25), value: isInputFocused)
         }
         .onAppear {
+            isInputFocused = true
             LoggerService.shared.log("NAV: Opened Minimalist DiaryView")
         }
     }
