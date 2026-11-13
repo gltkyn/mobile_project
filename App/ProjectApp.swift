@@ -5,7 +5,7 @@ import SwiftData
 struct ProjectApp: App {
     var body: some Scene {
         WindowGroup {
-            MainTabView()
+            MainContainerView()
         }
         .modelContainer(for: Item.self)
     }
