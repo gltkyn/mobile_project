@@ -4,6 +4,8 @@ enum HorizontalScreen: Int {
     case diary = 0 // Ana ekran ortada değil, solda veya tercih edilen akışta
     case todo = 1
     case done = 2
+    case calendar = 3
+    case agenda = 4
 }
 
 struct MainContainerView: View {
@@ -24,6 +26,12 @@ struct MainContainerView: View {
                 
                 DoneListView()
                     .tag(HorizontalScreen.done)
+
+                CalendarView()
+                    .tag(HorizontalScreen.calendar)
+
+                AgendaView()
+                    .tag(HorizontalScreen.agenda)
             }
             .tabViewStyle(.page(indexDisplayMode: .never))
             .ignoresSafeArea()
