@@ -5,7 +5,8 @@ struct DiaryEntry: Codable, Identifiable {
     var timestamp: Date = Date()
     var content: String
     var isDone: Bool = false
-    var isDaily: Bool = false 
+    var isDaily: Bool = false
+    var isTodo: Bool = false
 }
 
 // Tolerant decoding: lines written before a field existed (e.g. isDaily)
@@ -19,5 +20,6 @@ extension DiaryEntry {
         content = try c.decode(String.self, forKey: .content)
         isDone = try c.decodeIfPresent(Bool.self, forKey: .isDone) ?? false
         isDaily = try c.decodeIfPresent(Bool.self, forKey: .isDaily) ?? false
+        isTodo = try c.decodeIfPresent(Bool.self, forKey: .isTodo) ?? false
     }
 }
