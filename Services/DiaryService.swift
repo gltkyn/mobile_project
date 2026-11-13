@@ -34,7 +34,7 @@ final class DiaryService {
             }
         }
         
-        let entry = DiaryEntry(timestamp: Date(), content: trimmedText, isDone: isDoneValue)
+        let entry = DiaryEntry(timestamp: Date(), content: automatonResult.title.isEmpty ? trimmedText : automatonResult.title, isDone: isDoneValue)
         
         guard let data = try? JSONEncoder().encode(entry),
               let jsonString = String(data: data, encoding: .utf8) else { return false }
